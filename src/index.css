@@ -1,0 +1,135 @@
+/* ============================================================
+   FSM Simulator — Global Styles
+   Theme: Techy / Gaming Dark
+   Fonts: Syne · Inter · JetBrains Mono
+   ============================================================ */
+
+/* ── Design Tokens ─────────────────────────────────────── */
+:root {
+  --bg:  #0b0c0f;
+  --s1:  #10121a;
+  --s2:  #14161f;
+  --s3:  #191c28;
+  --s4:  #1e2130;
+
+  --blue:    #4d9ef7;
+  --blue2:   rgba(77, 158, 247, 0.14);
+  --blue-b:  rgba(77, 158, 247, 0.35);
+  --green:   #36d68a;
+  --green2:  rgba(54, 214, 138, 0.12);
+  --green-b: rgba(54, 214, 138, 0.30);
+  --amber:   #f59e0b;
+  --amber2:  rgba(245, 158, 11, 0.12);
+  --amber-b: rgba(245, 158, 11, 0.30);
+  --red:     #e05c72;
+  --red2:    rgba(224, 92, 114, 0.10);
+  --red-b:   rgba(224, 92, 114, 0.28);
+  --violet2: rgba(167, 139, 250, 0.12);
+
+  --t0: #f0f3ff;
+  --t1: #dde3f0;
+  --t2: #8892aa;
+  --t3: #4a5270;
+  --t4: #2e3450;
+
+  --border:  rgba(255, 255, 255, 0.06);
+  --border2: rgba(255, 255, 255, 0.10);
+  --border3: rgba(255, 255, 255, 0.16);
+
+  --sans:    'Inter', sans-serif;
+  --mono:    'JetBrains Mono', monospace;
+  --display: 'Syne', sans-serif;
+  --r:    8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+}
+
+/* ── Reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Ambient background glow */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 45% at 8%   0%,  rgba(77, 158, 247, 0.055) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 35% at 92% 100%, rgba(54, 214, 138, 0.040) 0%, transparent 65%),
+    radial-gradient(ellipse 30% 25% at 50%  50%, rgba(167, 139, 250, 0.020) 0%, transparent 60%);
+}
+
+#root { position: relative; z-index: 1; }
+
+/* ── Scrollbars ─────────────────────────────────────────── */
+::-webkit-scrollbar            { width: 5px; height: 5px; }
+::-webkit-scrollbar-track      { background: transparent; }
+::-webkit-scrollbar-thumb      { background: var(--border2); border-radius: 3px; }
+
+/* ── Animations used across components ─────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+
+@keyframes tab-fade {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes step-slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px) scale(0.95); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Popup overlay ──────────────────────────────────────── */
+.popup-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(5, 7, 15, 0.78);
+  backdrop-filter: blur(12px) saturate(0.8);
+  -webkit-backdrop-filter: blur(12px) saturate(0.8);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+.popup-overlay.open { opacity: 1; pointer-events: all; }
+
+.popup-box {
+  background: var(--s2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-xl);
+  padding: 32px 36px;
+  max-width: 540px; width: 100%;
+  max-height: 84vh; overflow-y: auto;
+  position: relative;
+  box-shadow:
+    0 0 0 1px rgba(77, 158, 247, 0.06),
+    0 40px 100px rgba(0, 0, 0, 0.70),
+    0 0 60px rgba(77, 158, 247, 0.04);
+  transform: translateY(20px) scale(0.97);
+  opacity: 0;
+  transition:
+    transform 0.26s cubic-bezier(0.34, 1.28, 0.64, 1),
+    opacity   0.22s ease;
+}
+.popup-overlay.open .popup-box { transform: translateY(0) scale(1); opacity: 1; }
+.popup-box::-webkit-scrollbar       { width: 3px; }
+.popup-box::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* ── Canvas ─────────────────────────────────────────────── */
+canvas { display: block; width: 100%; }
