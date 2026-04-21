@@ -63,9 +63,9 @@ export function Empty({ text }) {
 
 // ── Badge ─────────────────────────────────────────────────
 const BADGE_STYLES = {
-  accept: { bg: 'var(--green2)',  color: 'var(--green)', border: 'rgba(54,214,138,.25)' },
-  start:  { bg: 'var(--blue2)',   color: 'var(--blue)',  border: 'rgba(77,158,247,.25)' },
-  dead:   { bg: 'var(--red2)',    color: 'var(--red)',   border: 'rgba(224,92,114,.25)' },
+  accept: { bg: 'var(--green2)',  color: 'var(--green)', border: 'rgba(16,185,129,.25)' },
+  start:  { bg: 'var(--blue2)',   color: 'var(--blue)',  border: 'rgba(59,130,246,.25)' },
+  dead:   { bg: 'var(--red2)',    color: 'var(--red)',   border: 'rgba(239,68,68,.25)' },
 }
 
 export function Badge({ type, children }) {
@@ -93,8 +93,8 @@ export function TransTable({ auto }) {
         </thead>
         <tbody>
           {auto.states.map(s => (
-            <tr key={s} style={{ borderBottom: '1px solid rgba(255,255,255,.025)' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.02)'}
+            <tr key={s} style={{ borderBottom: '1px solid rgba(0,0,0,.04)', transition: 'background .15s' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,.02)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <td style={{ padding: '8px 12px', color: 'var(--blue)', fontWeight: 500 }}>
                 {s}
@@ -124,10 +124,10 @@ export function StepLog({ steps, activeIdx }) {
       {steps.map((s, i) => (
         <div key={i} style={{
           padding: '9px 13px',
-          background: i === activeIdx ? 'rgba(77,158,247,.07)' : 'var(--s2)',
+          background: i === activeIdx ? 'rgba(0,161,155,.07)' : 'var(--s2)',
           border: '1px solid var(--border)',
-          borderLeft: `2px solid ${i <= activeIdx ? 'var(--green)' : 'var(--border)'}`,
-          borderRadius: 5, transition: 'all .2s',
+          borderLeft: `3px solid ${i <= activeIdx ? 'var(--mint)' : 'var(--border)'}`,
+          borderRadius: 8, transition: 'all .2s',
           animation: 'step-slide-in .2s ease',
         }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: '0.60rem', color: 'var(--t3)', marginBottom: 3 }}>
@@ -146,8 +146,8 @@ export function InfoChips({ chips }) {
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
       {chips.map(([k, v, hi], i) => (
-        <div key={i} style={{ padding: '3px 10px', background: 'var(--s2)', border: '1px solid var(--border)', borderRadius: 5, fontFamily: 'var(--mono)', fontSize: '0.68rem', color: 'var(--t3)' }}>
-          {k} <strong style={{ fontWeight: 500, color: hi ? 'var(--blue)' : 'var(--t2)' }}>{v}</strong>
+        <div key={i} style={{ padding: '3px 10px', background: 'var(--s2)', border: '1px solid var(--border)', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: '0.68rem', color: 'var(--t3)', boxShadow: 'var(--shadow-sm)' }}>
+          {k} <strong style={{ fontWeight: 600, color: hi ? 'var(--mint)' : 'var(--t1)' }}>{v}</strong>
         </div>
       ))}
     </div>

@@ -239,7 +239,7 @@ export function simNFA(auto, str) {
 }
 
 /** Draw state diagram on a canvas element */
-export function drawDiagram(canvas, auto) {
+export function drawDiagram(canvas, auto, testResult, animIdx) {
   if (!canvas || !auto) return
   const dpr = window.devicePixelRatio || 1
   const W = canvas.offsetWidth || 900
@@ -250,11 +250,11 @@ export function drawDiagram(canvas, auto) {
   const ctx = canvas.getContext('2d')
   ctx.scale(dpr, dpr)
 
-  ctx.fillStyle = '#0b0c0f'
+  ctx.fillStyle = '#E4DDD3' // Ice Latte
   ctx.fillRect(0, 0, W, H)
 
   // dot grid
-  ctx.fillStyle = 'rgba(255,255,255,0.022)'
+  ctx.fillStyle = 'rgba(0,0,0,0.04)'
   for (let x = 36; x < W; x += 44)
     for (let y = 36; y < H; y += 44) {
       ctx.beginPath(); ctx.arc(x, y, 0.9, 0, Math.PI * 2); ctx.fill()
@@ -267,6 +267,21 @@ export function drawDiagram(canvas, auto) {
     const a = (2 * Math.PI * i / n) - Math.PI / 2
     pos[s] = { x: cx + rad * Math.cos(a), y: cy + rad * Math.sin(a) }
   })
+
+  // Extract active path info
+  let activeState = null;
+  let activeTransCount = 0; // if we want to trace the path
+  let activeSet = new Set();
+  
+  if (testResult && testResult.path && animIdx >= 0 && animIdx < testResult.path.length) {
+    const step = testResult.path[animIdx];
+    if (step.state) activeState = step.state;
+    if (step.sets) {
+       // Extract states from "{q0,q1}|{q2}" format
+       const matches = step.sets.match(/[^{}|,]+/g);
+       if (matches) matches.forEach(m => activeSet.add(m));
+    }
+  }
 
   // Build edge map
   const eMap = {}
@@ -284,9 +299,12 @@ export function drawDiagram(canvas, auto) {
     const [f, t] = k.split('§')
     if (!pos[f] || !pos[t]) continue
     const isEps = syms.includes('ε')
-    const col = isEps ? '#f59e0b' : '#2c3a56'
+    
+    // Animate edge if it's currently active (we could track last state to current state)
+    // For simplicity, just use base colors
+    const col = isEps ? '#ea580c' : '#8a8f9c' // Amber for eps, muted grey for rest
     ctx.save()
-    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.2
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.6
     if (isEps) ctx.setLineDash([4, 4]); else ctx.setLineDash([])
 
     const p1 = pos[f], p2 = pos[t], isSelf = f === t
@@ -297,7 +315,7 @@ export function drawDiagram(canvas, auto) {
       ctx.beginPath(); ctx.arc(ax, ay - 20, 20, 0.6 * Math.PI, 2.4 * Math.PI); ctx.stroke()
       ctx.setLineDash([])
       ctx.beginPath(); ctx.moveTo(ax + 13, ay - 4); ctx.lineTo(ax + 6, ay - 8); ctx.lineTo(ax + 6, ay + 1); ctx.closePath(); ctx.fill()
-      ctx.font = "9px 'JetBrains Mono',monospace"; ctx.fillStyle = '#4a5270'
+      ctx.font = "600 10px 'JetBrains Mono',monospace"; ctx.fillStyle = '#5c6270'
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
       ctx.fillText(syms.join(','), ax, ay - 43)
     } else {
@@ -317,13 +335,22 @@ export function drawDiagram(canvas, auto) {
 
       const ang = bend ? Math.atan2(ey - by, ex - bx) : Math.atan2(dy, dx)
       ctx.save(); ctx.translate(ex, ey); ctx.rotate(ang)
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-9, -4); ctx.lineTo(-9, 4); ctx.closePath(); ctx.fill()
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-10, -5); ctx.lineTo(-10, 5); ctx.closePath(); ctx.fill()
       ctx.restore()
 
-      ctx.font = "9px 'JetBrains Mono',monospace"; ctx.fillStyle = '#3a4560'
+      ctx.font = "600 10px 'JetBrains Mono',monospace"; ctx.fillStyle = '#5c6270'
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       const lx = bend ? bx : mx, ly = bend ? by : my
-      ctx.fillText(syms.join(','), lx - uy * 12, ly + ux * 12)
+      
+      // Draw a solid rect behind text to hide the line 
+      ctx.save()
+      ctx.fillStyle = '#E4DDD3'
+      const tx = lx - uy * 12;
+      const ty = ly + ux * 12;
+      ctx.fillRect(tx - 12, ty - 8, 24, 16)
+      ctx.restore()
+      
+      ctx.fillText(syms.join(','), tx, ty)
     }
     ctx.restore()
   }
@@ -334,34 +361,43 @@ export function drawDiagram(canvas, auto) {
     const isAcc   = auto.accept.includes(s)
     const isStart = s === auto.start
     const isDead  = s === '∅'
-    const col = isDead ? '#e05c72' : isAcc ? '#36d68a' : isStart ? '#4d9ef7' : '#4a5270'
+    const isActive = activeState === s || activeSet.has(s);
+    
+    // Colors
+    const baseCol = isDead ? '#ef4444' : isAcc ? '#10b981' : isStart ? '#3b82f6' : '#8a8f9c'
+    const col = isActive ? '#00A19B' : baseCol; // Mint for active
 
-    if (isAcc || isStart) {
-      const g = ctx.createRadialGradient(p.x, p.y, R, p.x, p.y, R + 20)
-      g.addColorStop(0, col + '20'); g.addColorStop(1, 'transparent')
+    if (isAcc || isStart || isActive) {
+      const g = ctx.createRadialGradient(p.x, p.y, R, p.x, p.y, R + 15)
+      g.addColorStop(0, col + '2A'); g.addColorStop(1, 'transparent')
       ctx.beginPath(); ctx.arc(p.x, p.y, R + 20, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill()
     }
-    if (isAcc) {
-      ctx.beginPath(); ctx.arc(p.x, p.y, R + 6, 0, Math.PI * 2)
-      ctx.strokeStyle = col + '45'; ctx.lineWidth = 1; ctx.stroke()
+    
+    if (isActive) {
+      // additional pulse ring for active
+      ctx.beginPath(); ctx.arc(p.x, p.y, R + 8, 0, Math.PI * 2)
+      ctx.strokeStyle = col + '60'; ctx.lineWidth = 2.5; ctx.stroke()
     }
 
-    const gr = ctx.createRadialGradient(p.x - 4, p.y - 4, 2, p.x, p.y, R)
-    gr.addColorStop(0, isDead ? '#1c0c12' : isAcc ? '#0a1a10' : isStart ? '#0c1422' : '#10131c')
-    gr.addColorStop(1, '#090a0e')
+    if (isAcc) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, R - 4, 0, Math.PI * 2)
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke()
+    }
+
     ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI * 2)
-    ctx.fillStyle = gr; ctx.fill()
-    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke()
+    ctx.fillStyle = isActive ? '#FFFFFF' : '#F4EFE6'
+    ctx.fill()
+    ctx.strokeStyle = col; ctx.lineWidth = isActive ? 2.5 : 1.5; ctx.stroke()
 
     if (isStart) {
       ctx.beginPath(); ctx.moveTo(p.x - R - 30, p.y); ctx.lineTo(p.x - R - 2, p.y)
-      ctx.strokeStyle = '#4d9ef7'; ctx.lineWidth = 1.4; ctx.stroke()
-      ctx.fillStyle = '#4d9ef7'
-      ctx.beginPath(); ctx.moveTo(p.x - R - 2, p.y); ctx.lineTo(p.x - R - 10, p.y - 4); ctx.lineTo(p.x - R - 10, p.y + 4); ctx.closePath(); ctx.fill()
+      ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, isActive ? 2.5 : 1.4); ctx.stroke()
+      ctx.fillStyle = col
+      ctx.beginPath(); ctx.moveTo(p.x - R - 2, p.y); ctx.lineTo(p.x - R - 12, p.y - 5); ctx.lineTo(p.x - R - 12, p.y + 5); ctx.closePath(); ctx.fill()
     }
 
-    ctx.font = "500 11px 'JetBrains Mono', monospace"
-    ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.font = (isActive ? "700 " : "500 ") + "12px 'JetBrains Mono', monospace"
+    ctx.fillStyle = isActive ? '#1a1b1e' : '#373a40'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillText(s.length > 7 ? s.slice(0, 6) + '…' : s, p.x, p.y)
   }
-}
+}    

@@ -108,14 +108,14 @@ const styles = {
   closeBtn: {
     position: 'absolute', top: 14, right: 14,
     width: 28, height: 28, borderRadius: '50%',
-    background: 'var(--s3)', border: '1px solid var(--border2)',
+    background: 'var(--surface-2)', border: '1px solid var(--border-md)',
     color: 'var(--t3)', fontSize: 13, cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     transition: 'all .15s', lineHeight: 1,
   },
   tag: {
     fontFamily: 'var(--mono)', fontSize: '0.60rem', letterSpacing: '0.18em',
-    color: 'rgba(77,158,247,0.75)', textTransform: 'uppercase', marginBottom: 7,
+    color: 'var(--mint)', textTransform: 'uppercase', marginBottom: 7, fontWeight: 600,
   },
   title: {
     fontSize: '1.15rem', fontWeight: 700, color: 'var(--t0)',
@@ -130,35 +130,36 @@ const styles = {
     color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 10,
   },
   code: {
-    fontFamily: 'var(--mono)', fontSize: '0.78rem', background: 'var(--s3)',
+    fontFamily: 'var(--mono)', fontSize: '0.78rem', background: 'var(--surface-1)',
     padding: '12px 16px', borderRadius: 8, color: 'var(--t2)', lineHeight: 1.9,
     whiteSpace: 'pre', marginBottom: 12, border: '1px solid var(--border)', overflowX: 'auto',
   },
   note: {
     fontFamily: 'var(--mono)', fontSize: '0.70rem', color: 'var(--t3)',
-    background: 'var(--s1)', border: '1px solid var(--border)', borderRadius: 6,
+    background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 6,
     padding: '9px 12px', lineHeight: 1.6, marginTop: 4,
   },
   key: {
-    fontFamily: 'var(--mono)', fontSize: '0.70rem', background: 'var(--s3)',
-    padding: '2px 8px', borderRadius: 4, color: 'var(--amber)',
+    fontFamily: 'var(--mono)', fontSize: '0.70rem', background: 'var(--warn-10)',
+    padding: '2px 8px', borderRadius: 4, color: 'var(--warn)',
     border: '1px solid rgba(245,158,11,0.22)', flexShrink: 0,
     whiteSpace: 'nowrap', marginTop: 2,
   },
   kvVal: { fontSize: '0.85rem', color: 'var(--t2)', lineHeight: 1.65 },
   stepNum: {
     width: 20, height: 20, borderRadius: '50%',
-    background: 'var(--blue2)', border: '1px solid rgba(77,158,247,0.30)',
-    color: 'var(--blue)', fontSize: '0.65rem', fontWeight: 600,
+    background: 'var(--mint-10)', border: '1px solid var(--mint-35)',
+    color: 'var(--mint)', fontSize: '0.65rem', fontWeight: 600,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0, fontFamily: 'var(--mono)', marginTop: 1,
   },
   stepText: { fontSize: '0.85rem', color: 'var(--t2)', lineHeight: 1.65 },
   col: {
-    background: 'var(--s3)', border: '1px solid var(--border)', borderRadius: 8, padding: 13,
+    background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: 13,
   },
   colLabel: {
     fontFamily: 'var(--mono)', fontSize: '0.60rem', letterSpacing: '0.12em',
-    color: 'var(--blue)', textTransform: 'uppercase', marginBottom: 7,
+    color: 'var(--mint)', textTransform: 'uppercase', marginBottom: 7, fontWeight: 600,
   },
 }
+
