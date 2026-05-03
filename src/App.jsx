@@ -9,7 +9,7 @@ import InputTracker       from './components/InputTracker'
 import Popup              from './components/Popup'
 import LenisSetup         from './components/LenisSetup'
 import {
-  parseAuto, subsetConstruct, minimizeDFA, simDFA, simNFA,
+  parseAuto, subsetConstruct, minimizeDFA, simDFA, simNFA, regexToAuto,
 } from './utils/automata'
 import { EXAMPLES } from './utils/examples'
 
@@ -215,6 +215,12 @@ export default function App() {
   const [batchInput,   setBatchInput]   = useState('')
   const [batchResults, setBatchResults] = useState(null)
 
+  // ── Regex Builder State ────────────────────────────────────
+  const [regexStr,      setRegexStr]      = useState('(a|b)*abb')
+  const [regexAlpha,    setRegexAlpha]    = useState('a,b')
+  const [regexStatus,   setRegexStatus]   = useState(null)   // null | { ok, msg }
+  const [showCheatsheet, setShowCheatsheet] = useState(false)
+
   // ── Simulation Controls ────────────────────────────────────
   const [isPlaying, setIsPlaying] = useState(false)
   const [simSpeed,  setSimSpeed]  = useState(600)
@@ -256,6 +262,51 @@ export default function App() {
       setAnimIdx(-1); setIsPlaying(false)
     }
     toast('Loaded: ' + e.label, 'info')
+  }
+
+  function handleRegexBuild() {
+    // ── Step 1: Regex → NFA (Thompson's Construction) ──────────
+    const nfa = regexToAuto(regexStr, regexAlpha)
+    if (nfa.error) {
+      setRegexStatus({ ok: false, msg: nfa.error })
+      toast(nfa.error, 'err')
+      return
+    }
+
+    // ── Step 2: NFA → DFA (Subset Construction) ────────────────
+    const dfaResult = subsetConstruct(nfa)
+
+    // ── Step 3: DFA → Minimized DFA (Hopcroft) ─────────────────
+    const minResult = minimizeDFA(dfaResult.auto)
+
+    // ── Commit all state at once ────────────────────────────────
+    setAuto(nfa)
+    setDfaRes(dfaResult)
+    setMinRes(minResult)
+    setNfaIdx(dfaResult.steps.length - 1)
+    setMinIdx(minResult.steps.length - 1)
+    setTestResult(null); setBatchResults(null)
+    setAnimIdx(-1); setIsPlaying(false)
+    setDiagTarget('min') // default diagram to minimized DFA
+
+    // Fill the manual definition form with the minimized DFA
+    const minAuto = minResult.auto
+    const stateList  = minAuto.states.join(',')
+    const alphaList  = minAuto.alpha.join(',')
+    const acceptList = minAuto.accept.join(',')
+    const transLines = []
+    for (const s of minAuto.states) {
+      for (const sym of minAuto.alpha) {
+        for (const to of (minAuto.T[s]?.[sym] || [])) {
+          transLines.push(`${s},${sym},${to}`)
+        }
+      }
+    }
+    setRaw({ states: stateList, alpha: alphaList, start: minAuto.start, accept: acceptList, trans: transLines.join('\n') })
+
+    const msg = `Pipeline complete — NFA: ${nfa.states.length}Q → DFA: ${dfaResult.auto.states.length}Q → Min DFA: ${minResult.auto.states.length}Q`
+    setRegexStatus({ ok: true, msg })
+    toast(msg, 'ok')
   }
 
   function handleConvert() {
@@ -363,6 +414,92 @@ export default function App() {
                       {ex.label}
                     </button>
                   ))}
+                </div>
+              </Card>
+
+              {/* ── From Regular Expression ── */}
+              <Card title="From Regular Expression">
+                <p style={{ fontFamily: 'var(--mono)', fontSize: '0.68rem', color: 'var(--t3)', marginBottom: 14, lineHeight: 1.7 }}>
+                  Enter a regex and alphabet — the NFA is synthesised automatically via
+                  {' '}<span style={{ color: 'var(--mint)', fontWeight: 600 }}>Thompson's Construction</span>.
+                </p>
+
+                <div className="grid-2" style={{ gap: 12, marginBottom: 12 }}>
+                  <Field label="Regular Expression">
+                    <FInput
+                      value={regexStr}
+                      onChange={e => { setRegexStr(e.target.value); setRegexStatus(null) }}
+                      placeholder="(a|b)*abb"
+                    />
+                  </Field>
+                  <Field label="Alphabet (comma-separated)">
+                    <FInput
+                      value={regexAlpha}
+                      onChange={e => { setRegexAlpha(e.target.value); setRegexStatus(null) }}
+                      placeholder="a,b"
+                    />
+                  </Field>
+                </div>
+
+                {/* Syntax cheatsheet toggle */}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ marginBottom: 12, fontSize: '0.65rem' }}
+                  onClick={() => setShowCheatsheet(v => !v)}
+                >
+                  {showCheatsheet ? '▲ Hide' : '▼ Show'} syntax reference
+                </button>
+
+                {showCheatsheet && (
+                  <div style={{
+                    background: 'var(--surface-low)',
+                    border: '1px solid var(--surface-hi)',
+                    borderRadius: 'var(--r)',
+                    padding: '12px 16px',
+                    marginBottom: 14,
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                    gap: '6px 20px',
+                  }}>
+                    {[
+                      ['a, b, …',   'literal character'],
+                      ['.',         'any alphabet symbol (wildcard)'],
+                      ['r*',        'Kleene star — zero or more'],
+                      ['r+',        'one or more (r·r*)'],
+                      ['r?',        'optional — zero or one'],
+                      ['r|s',       'alternation — r or s'],
+                      ['rs',        'concatenation — r then s'],
+                      ['(r)',       'grouping / precedence'],
+                    ].map(([op, desc]) => (
+                      <div key={op} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                        <code style={{
+                          fontFamily: 'var(--mono)', fontSize: '0.72rem',
+                          color: 'var(--mint)', background: 'var(--mint-8)',
+                          padding: '1px 6px', borderRadius: 4, whiteSpace: 'nowrap',
+                        }}>{op}</code>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--t3)' }}>{desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex-row" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <Btn onClick={handleRegexBuild} variant="mint">▶ Build from Regex</Btn>
+                  <Btn onClick={() => { setRegexStr(''); setRegexAlpha('a,b'); setRegexStatus(null) }} variant="ghost" size="sm">✕ Clear</Btn>
+                  {regexStatus && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '5px 12px', borderRadius: 'var(--r-full)',
+                      background: regexStatus.ok ? 'var(--success-10, rgba(16,185,129,0.10))' : 'var(--error-10, rgba(239,68,68,0.10))',
+                      border: `1px solid ${regexStatus.ok ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)'}`,
+                      fontSize: '0.68rem', fontFamily: 'var(--mono)',
+                      color: regexStatus.ok ? 'var(--success)' : 'var(--error)',
+                      maxWidth: '100%',
+                    }}>
+                      <span>{regexStatus.ok ? '✓' : '✗'}</span>
+                      <span>{regexStatus.msg}</span>
+                    </div>
+                  )}
                 </div>
               </Card>
 

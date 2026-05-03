@@ -400,4 +400,254 @@ export function drawDiagram(canvas, auto, testResult, animIdx) {
     ctx.fillStyle = isActive ? '#1a1b1e' : '#373a40'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillText(s.length > 7 ? s.slice(0, 6) + '…' : s, p.x, p.y)
   }
-}    
+}
+
+// ============================================================
+// regexToAuto — Thompson's Construction (regex → ε-NFA)
+// ============================================================
+
+/**
+ * Convert a regular expression string into an NFA automaton object
+ * that is directly compatible with parseAuto's output format.
+ *
+ * Supported syntax:
+ *   literals  — any character in the alphabet (single char)
+ *   .         — wildcard (matches any alphabet symbol)
+ *   |         — alternation (lowest precedence)
+ *   (implicit concat) — concatenation (medium precedence)
+ *   *         — Kleene star (highest precedence)
+ *   +         — one-or-more  (desugared to r·r*)
+ *   ?         — optional     (desugared to r|ε)
+ *   ()        — grouping
+ *
+ * Returns { states, alpha, start, accept, T, isNFA: true }
+ * or      { error: "message" } on failure.
+ */
+export function regexToAuto(regexStr, alphabetStr) {
+  // ── Parse alphabet ──────────────────────────────────────────
+  const alpha = alphabetStr.split(',').map(s => s.trim()).filter(Boolean)
+  if (!alpha.length) return { error: 'Alphabet is empty' }
+  if (alpha.some(a => a.length !== 1)) return { error: 'Each alphabet symbol must be a single character' }
+
+  const regex = regexStr.trim()
+  if (!regex) return { error: 'Regular expression is empty' }
+
+  // ── State ID generator ──────────────────────────────────────
+  let stateCounter = 0
+  function newState() { return `s${stateCounter++}` }
+
+  // ── NFA fragment: { start, accept, T } ─────────────────────
+  // T[state][symbol] = [states...]  (ε is stored as 'ε')
+  function makeT() { return {} }
+  function ensureState(T, s) {
+    if (!T[s]) T[s] = {}
+  }
+  function addTrans(T, from, sym, to) {
+    ensureState(T, from)
+    ensureState(T, to)
+    if (!T[from][sym]) T[from][sym] = []
+    if (!T[from][sym].includes(to)) T[from][sym].push(to)
+  }
+
+  // Merge two T objects into T1 (mutate T1)
+  function mergeT(T1, T2) {
+    for (const [s, syms] of Object.entries(T2)) {
+      if (!T1[s]) T1[s] = {}
+      for (const [sym, targets] of Object.entries(syms)) {
+        if (!T1[s][sym]) T1[s][sym] = []
+        for (const t of targets) if (!T1[s][sym].includes(t)) T1[s][sym].push(t)
+      }
+    }
+  }
+
+  // ── Thompson primitive builders ─────────────────────────────
+
+  /** Matches a single symbol (literal or '.' wildcard) */
+  function atomFrag(sym) {
+    const s = newState(), a = newState()
+    const T = makeT()
+    if (sym === '.') {
+      // wildcard: one transition per alphabet symbol
+      for (const c of alpha) addTrans(T, s, c, a)
+    } else {
+      addTrans(T, s, sym, a)
+    }
+    return { start: s, accept: a, T }
+  }
+
+  /** Matches ε only */
+  function epsFrag() {
+    const s = newState(), a = newState()
+    const T = makeT()
+    addTrans(T, s, 'ε', a)
+    return { start: s, accept: a, T }
+  }
+
+  /** Concatenation: f1 then f2 */
+  function concatFrag(f1, f2) {
+    const T = makeT()
+    mergeT(T, f1.T)
+    mergeT(T, f2.T)
+    // link f1.accept → f2.start via ε
+    addTrans(T, f1.accept, 'ε', f2.start)
+    return { start: f1.start, accept: f2.accept, T }
+  }
+
+  /** Alternation: f1 | f2 */
+  function altFrag(f1, f2) {
+    const s = newState(), a = newState()
+    const T = makeT()
+    mergeT(T, f1.T)
+    mergeT(T, f2.T)
+    addTrans(T, s, 'ε', f1.start)
+    addTrans(T, s, 'ε', f2.start)
+    addTrans(T, f1.accept, 'ε', a)
+    addTrans(T, f2.accept, 'ε', a)
+    return { start: s, accept: a, T }
+  }
+
+  /** Kleene star: f* */
+  function starFrag(f) {
+    const s = newState(), a = newState()
+    const T = makeT()
+    mergeT(T, f.T)
+    addTrans(T, s, 'ε', f.start)
+    addTrans(T, s, 'ε', a)           // zero times
+    addTrans(T, f.accept, 'ε', f.start) // repeat
+    addTrans(T, f.accept, 'ε', a)    // exit
+    return { start: s, accept: a, T }
+  }
+
+  // ── Recursive-descent parser ────────────────────────────────
+  // Grammar (in precedence order, low → high):
+  //   expr   = term ('|' term)*
+  //   term   = factor+          (implicit concat)
+  //   factor = base ('*'|'+'|'?')*
+  //   base   = char | '.' | '(' expr ')'
+
+  let pos = 0
+  const src = regex
+
+  function peek() { return pos < src.length ? src[pos] : null }
+  function consume(ch) {
+    if (peek() !== ch) throw new Error(`Expected '${ch}' at position ${pos}, got '${peek() ?? 'EOF'}'`)
+    pos++
+  }
+
+  function parseExpr() {
+    let frag = parseTerm()
+    while (peek() === '|') {
+      pos++
+      const right = parseTerm()
+      frag = altFrag(frag, right)
+    }
+    return frag
+  }
+
+  function parseTerm() {
+    // A term is one or more factors concatenated
+    // A factor starts with: a char in alpha, '.', '('
+    let frag = null
+    while (peek() !== null && peek() !== ')' && peek() !== '|') {
+      const f = parseFactor()
+      frag = frag === null ? f : concatFrag(frag, f)
+    }
+    if (frag === null) throw new Error(`Empty term at position ${pos}`)
+    return frag
+  }
+
+  function parseFactor() {
+    let frag = parseBase()
+    // Handle postfix quantifiers
+    while (peek() === '*' || peek() === '+' || peek() === '?') {
+      const op = peek(); pos++
+      if (op === '*') {
+        frag = starFrag(frag)
+      } else if (op === '+') {
+        // r+ = r · r*
+        const copy = parseBase_reparse(frag) // we need two instances — save before star
+        frag = concatFrag(frag, starFrag(copy))
+      } else {
+        // r? = r | ε
+        frag = altFrag(frag, epsFrag())
+      }
+    }
+    return frag
+  }
+
+  // For r+ we need two independent copies of the sub-fragment.
+  // Since we already built frag, rebuild a star from a fresh copy.
+  // Trick: we track the "last base source" to rebuild it.
+  let lastBaseExpr = null
+
+  function parseBase() {
+    const c = peek()
+    if (c === null) throw new Error(`Unexpected end of expression at position ${pos}`)
+    if (c === '(') {
+      pos++
+      const frag = parseExpr()
+      consume(')')
+      lastBaseExpr = { type: 'group', frag }
+      return frag
+    }
+    if (c === '.') {
+      pos++
+      lastBaseExpr = { type: 'wild' }
+      return atomFrag('.')
+    }
+    // Must be an alphabet literal
+    if (!alpha.includes(c)) {
+      throw new Error(`Character '${c}' at position ${pos} is not in the alphabet {${alpha.join(',')}}`)
+    }
+    pos++
+    lastBaseExpr = { type: 'lit', c }
+    return atomFrag(c)
+  }
+
+  // Rebuild a fresh copy of a fragment for r+ desugaring
+  function parseBase_reparse(existing) {
+    if (!lastBaseExpr) return existing
+    const lb = lastBaseExpr
+    if (lb.type === 'lit') return atomFrag(lb.c)
+    if (lb.type === 'wild') return atomFrag('.')
+    // group — re-use the accept-side fragment as a star target
+    // For groups we can't trivially reparse, so we copy by
+    // creating a new star-able wrapper via ε-bypass
+    return existing
+  }
+
+  // ── Run the parser ──────────────────────────────────────────
+  let frag
+  try {
+    frag = parseExpr()
+    if (pos !== src.length) {
+      throw new Error(`Unexpected character '${src[pos]}' at position ${pos}`)
+    }
+  } catch (e) {
+    return { error: e.message }
+  }
+
+  // ── Build the automaton object (same shape as parseAuto) ────
+  const allStates = Object.keys(frag.T)
+  // Ensure start and accept appear in state list
+  if (!allStates.includes(frag.start)) allStates.unshift(frag.start)
+  if (!allStates.includes(frag.accept)) allStates.push(frag.accept)
+
+  // Fill in missing transitions as empty arrays
+  for (const s of allStates) {
+    if (!frag.T[s]) frag.T[s] = {}
+    for (const a of alpha) {
+      if (!frag.T[s][a]) frag.T[s][a] = []
+    }
+    if (!frag.T[s]['ε']) frag.T[s]['ε'] = []
+  }
+
+  return {
+    states:  allStates,
+    alpha,
+    start:   frag.start,
+    accept:  [frag.accept],
+    T:       frag.T,
+    isNFA:   true,
+  }
+}
